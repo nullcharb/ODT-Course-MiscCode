@@ -1,20 +1,18 @@
-/*
-Written by: @nu11charb
-Course: Offensive Development and Tradecraft (https://ask-academy.live/courses/offensive-development-and-tradecraft)
-Purpose: This code is used to check if a debugger is present via isDebuggerPresent Api.
-*/
-
 #include <stdio.h>
 #include <windows.h>
 
 void IsDebuggerPresentCheckViaApi();
 void IsRemoteDebuggerPresent();
+void CheckDebuggerViaNTGlobalFlag();
+void CheckDebuggerViaNTQueryInformationProcess();
 
 int main(void) {
-    printf("[i] [Func: %s] Checking for Debugger Present via IsDebuggerPresent Api\n", __func__);
+    printf("[i] [Func: %s] Checking for Debugger Present.\n", __func__);
 
     IsDebuggerPresentCheckViaApi();
     IsRemoteDebuggerPresent();
+    CheckDebuggerViaNTGlobalFlag();
+    CheckDebuggerViaNTQueryInformationProcess();
 
     printf("[i] [Func: %s] Press any key to continue.", __func__);
 
@@ -47,29 +45,41 @@ void IsRemoteDebuggerPresent() {
     }
 }
 
+void CheckDebuggerViaNTGlobalFlag() {
+    PDWORD pNtGlobalFlag = NULL;
+    VOID* pPeb = (VOID*)__readgsqword(0x60);
+    pNtGlobalFlag = (PDWORD)(pPeb + 0xBC);
 
-/*
-Section details about this pefile.
+    if(pNtGlobalFlag && (*pNtGlobalFlag & 0x00000070))
+        printf("[-] [Func: %s] Debugger is Found.\n", __func__);
+    else
+        printf("[+] [Func: %s] No Debugger Found.\n", __func__);
+}
 
-.text: This section contains the executable code, also known as the program's text segment. The instructions for the program are stored in this section.
+// Define PROCESSINFOCLASS enum
+typedef enum _PROCESSINFOCLASS {
+    ProcessDebugPort = 7
+} PROCESSINFOCLASS;
 
-.data: This section contains global and static data that is initialized before the program starts running. This includes variables and arrays that are initialized with values.
+// Define NtQueryInformationProcess function prototype
+typedef NTSTATUS (NTAPI *NTQUERYINFORMATIONPROCESS)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
 
-.rdata: This section contains read-only data that is used by the program. This includes constants and string literals.
+void CheckDebuggerViaNTQueryInformationProcess() {
 
-.pdata: This section contains information about the exception handling data in the program. It's used by the operating system to handle exceptions that occur during program execution.
+    NTQUERYINFORMATIONPROCESS _NtQueryInformationProcess = (NTQUERYINFORMATIONPROCESS) GetProcAddress(
+            LoadLibraryA("ntdll.dll"), "NtQueryInformationProcess");
 
-.xdata: This section contains exception handling data for the program. It's used to handle exceptions that occur during program execution.
+    if (_NtQueryInformationProcess)
+    {
+        DWORD dwProcessDebugPort;
+        DWORD dwProcessInformationLength = sizeof(ULONG) * 2;
+        NTSTATUS status = _NtQueryInformationProcess(GetCurrentProcess(), ProcessDebugPort, &dwProcessDebugPort, dwProcessInformationLength, NULL);
 
-.bss: This section contains uninitialized data. This includes global and static variables that are not initialized with values.
+        if (dwProcessDebugPort == -1){
+            printf("[-] [Func: %s] Debugger is Found. dwProcessDebugPort = %lu.\n", __func__, dwProcessDebugPort);
+        }
+        else
+            printf("[+] [Func: %s] No Debugger Found.\n", __func__);
+    }
 
-.idata: This section contains information about the program's imported functions and libraries. This information is used by the program to link with other libraries and to call functions from those libraries.
-
-.CRT: This section contains code that is executed before the program starts running. This includes constructors for global and static objects.
-
-.tls: This section contains data for the program's thread-local storage. This includes variables that are unique to each thread.
-
-.reloc: This section contains information about the program's relocation data. It's used to adjust the program's memory addresses when it's loaded into memory.
-
-Each section of a PE file has a specific purpose and contains different types of data. By examining the contents of each section, you can get an idea of what the program does and how it works.
-*/
+}
