@@ -1,3 +1,9 @@
+/*
+Written by: @nu11charb
+Course: Offensive Development and Tradecraft (https://ask-academy.live/courses/offensive-development-and-tradecraft)
+Purpose: This code is used to check if a debugger is present via isDebuggerPresent Api.
+*/
+
 #include <stdio.h>
 #include <windows.h>
 
